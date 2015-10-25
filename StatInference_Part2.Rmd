@@ -1,0 +1,190 @@
+---
+output: html_document
+---
+
+```{r global_options, include=FALSE}
+library(knitr)
+opts_chunk$set(fig.width=6, fig.height=4, warning=FALSE, message=FALSE)
+```
+
+# The Influence of Vitamin C on Guinea Pigs Tooth Growth 
+
+[Valerii Podymov](vapodymov@gmail.com)
+
+October 24, 2015
+
+## Overview
+
+The goal of this project is to analyze the [ToothGrowth](https://stat.ethz.ch/R-manual/R-devel/library/datasets/html/ToothGrowth.html) data in the R `datasets` package. The data is the result of measuring the effect of different dosage of Vitamin C on the length of teeth of 60 guinea pigs. Vitamin C was supplemented with Orange Juice and Ascorbic Acid in three different dosage, 0.5, 1.0, and 2.0 milligrams/day. The focus of the report is statistical inference around different categorizations on the length of teeth.
+
+## Data Loading, Cleaning and Exploratory Analysis
+
+We start with loading data from the source and performing some basic exploratory data analyses. 
+
+```{r}
+# Load necessary libraries
+library(plyr)
+library(lattice)
+library(datasets)
+```
+
+```{r}
+# Load ToothGrowth data
+dt <- ToothGrowth
+```
+
+To understand the content and the structure of the data we use the following two methods.
+
+``` {r}
+# Provide a basic summary of the data
+summary(dt)
+
+# Display the internal structure of the data.frame object
+str(dt)
+```
+
+Now we check if the data contain missing values.
+
+``` {r}
+sum(is.na(dt))
+```
+
+Since there are no missing values, we can continue the analysis. Next step is to change the names of variables to something more meaningful. 
+
+```{r}
+colnames(dt) <- c("Length", "Supplement", "Dosage")
+```
+
+For further analysis we need to visualize tooth lenght against the dosage and supplement. For this purpose we first split data into subsets by 
+
+* dosages - 0.5, 1.0 and 2.0 mg/d
+* supplements - orange juice (`OJ`) and ascorbic acid (`VC`)
+
+and compute the mean average for each. 
+
+```{r}
+# Compute summary statistics of data subsets
+avg_length <- aggregate(Length ~ Dosage + Supplement, dt, mean)
+```
+
+The following chart shows that there is a strong relationship between the average teeth length and dosage. 
+
+```{r, echo=FALSE}
+barchart(as.character(avg_length$Dosage) ~ avg_length$Length | 
+        avg_length$Supplement,
+        ylab="Dosage, mg/d", xlab="Tooth length", 
+        main="Vitamin C influence", 
+        layout=(c(2,1)))
+```
+
+However, it is still unclear which supplement,   Orange Juice `OJ` or Ascorbic Acid `VC`, has more influence on teeth growth.  
+
+## Confidence Interval Testing
+
+In order to understand Vitamin C effect on the teeth growth, we conduct the following confidence interval testing scenarios
+
+* Dependence of the teeth growth on the dosage
+* Dependence of the teeth growth on the supplement
+* Dependence of the teeth growth on different combinations of two factors
+
+in the followng assumptions
+
+* the data samples are independent and normally distributed
+* the groups received orange juice and ascorbic acid are independent.
+
+For each of the scenarios we subset available data appropriately and utilize the `t.test` function to determine confidence intervals.
+
+### Dosage 
+
+Let *H0* be a null hypotesis
+
+*H0: the increase of the dosage does not result in the average tooth length growth*
+
+``` {r}
+# Subsetting the data set
+t1 <- subset(dt, Dosage == 0.5)$Length
+t2 <- subset(dt,Dosage==1.0)$Length
+# Perform t-confidence interval test
+t <- t.test(t1, t2, paired = FALSE, var.equal = FALSE)
+t$conf.int[1:2]
+```
+
+Since the confidence interval does not contain zero we can reject the null hypothesis. In the other words, there is a positive correlation between the increase of the dosage from 0.5 to 1.0 mg/d and the average teeth length growth. 
+
+Next, if we increase the Vitamin C dosage from 1.0 to 2.0 milligrams per day, the confidence interval also does not contain zero.
+
+``` {r}
+t1 <- subset(dt, Dosage == 1.0)$Length
+t2 <- subset(dt, Dosage == 2.0)$Length
+t <- t.test(t1, t2, paired = FALSE, var.equal = FALSE)
+t$conf.int[1:2]
+```
+
+Consequently, we should reject the null hypothesis again.
+
+### Type of Supplement 
+
+Let *H0* be a null hypotesis
+
+*H0: the type of the supplement does not have an influence on the average tooth length growth*
+
+``` {r}
+t1 <- subset(dt, Supplement == 'VC')$Length
+t2 <- subset(dt, Supplement == 'OJ')$Length
+t <- t.test(t1, t2, paired = FALSE, var.equal = FALSE)
+t$p.value
+t$conf.int[1:2]
+```
+
+In this single test the p-value is `r t$p.value` and the confidence interval contains zero, so we do not reject the null hypothesis and conclude that the type of Vitamin C supplement alone does not affect the average teeth length.
+
+### Supplement and Dosage in Combinations
+
+Now we compare the influence of each of the dosage of orange juice with equivalent dosage of ascorbic acid. 
+
+Let null hypotesis be
+
+*H0: the type of the supplement with the dosage of 0.5 mg/d does not have an influence on the average tooth length growth*
+
+``` {r}
+t1 <- subset(dt, Supplement == 'VC' & Dosage == 0.5)$Length
+t2 <- subset(dt, Supplement == 'OJ' & Dosage == 0.5)$Length
+t <- t.test(t1, t2, paired = FALSE, var.equal = FALSE)
+t$conf.int[1:2]
+```
+
+The confidence interval does not contain zero, so we should reject the null hypothesis.
+
+Then we check the next null hypotesis
+
+*H0: the type of the supplement with the dosage of 1.0 mg/d does not have an influence on the average tooth length growth*
+     
+``` {r}
+t1 <- subset(dt, Supplement == 'VC' & Dosage == 1.0)$Length
+t2 <- subset(dt, Supplement == 'OJ' & Dosage == 1.0)$Length
+t <- t.test(t1, t2, paired = FALSE, var.equal = FALSE)
+t$conf.int[1:2]
+```
+
+The confidence interval does not contain zero, so we should reject the null hypothesis.
+ 
+And finally we check the null hypotesis   
+
+*H0: the type of the supplement with the dosage of 2.0 mg/d does not have an influence on the average tooth length growth*
+
+``` {r}
+t1<-subset(dt,Supplement=='VC' & Dosage==2.0)$Length
+t2<-subset(dt,Supplement=='OJ' & Dosage==2.0)$Length
+t<-t.test(t1,t2,paired=FALSE,var.equal=FALSE)
+t$p.value
+t$conf.int[1:2]
+```
+
+The confidence interval contains zero and the p-value is almost 1. Thus, we do not reject the null hypothesis and it means that with the dosage of 2.0 mg/d we cannot conclude which supplement type has a greater effect on teeth growth.
+  
+### Conclusions
+
+* As Vitamin C dosage alone increases, the average teeth length increases as well
+* Irrespective of the dosage, the supplement type alone does not affect the teeth growth
+* Orange Juice affects the average teeth length greater then Ascorbic Acid with the dosage of 0.5 and 1.0 mg/d
+* When the dosage reaches the value of 2.0 mg/d, there is no significant difference between Orange Juice and Ascorbic Acid
